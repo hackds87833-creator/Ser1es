@@ -179,6 +179,7 @@ body::before{
   gap:12px;
 }
 .episode-card{
+  position:relative;
   background:#111;border-radius:10px;overflow:hidden;
   cursor:pointer;transition:transform .15s,box-shadow .15s;
   box-shadow:0 0 10px rgba(0,0,0,0.6);
@@ -193,6 +194,21 @@ body::before{
 .episode-card h4{
   padding:.6em;font-size:.9em;text-align:center;margin:0;
   background:rgba(0,0,0,0.7);
+}
+
+/* Palomita de visto */
+.episode-card.visto::after{
+  content:"✔";
+  position:absolute;
+  top:6px;right:6px;
+  background:var(--accent);
+  color:#000;
+  font-weight:bold;
+  font-size:0.8rem;
+  width:20px;height:20px;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 6px rgba(0,255,127,0.6);
 }
 
 /* ============================= */
@@ -414,6 +430,13 @@ function renderEpisodes(season) {
   (season.episodes || []).forEach(ep => {
     const epDiv = document.createElement('div');
     epDiv.className = 'episode-card';
+    // agregamos atributos para identificar el episodio más fácilmente
+    epDiv.setAttribute('data-season', season.season_number);
+    epDiv.setAttribute('data-episode', ep.episode_number);
+
+    const keyVisto = `visto_${serieId}_S${season.season_number}_E${ep.episode_number}`;
+    if (localStorage.getItem(keyVisto)) epDiv.classList.add('visto');
+
     epDiv.innerHTML = `
       <img src="${ep.still_path ? imageBase + ep.still_path : ''}" alt="${ep.name}">
       <h4>${ep.episode_number}. ${ep.name}</h4>
@@ -443,6 +466,7 @@ function loadEpisode(seasonNum, episodeNum, ep) {
   });
 
   const saveKey = `progress_${serieId}_S${seasonNum}_E${episodeNum}`;
+  const vistoKey = `visto_${serieId}_S${seasonNum}_E${episodeNum}`;
   const savedTime = localStorage.getItem(saveKey);
 
   player.on('ready', () => {
@@ -453,10 +477,24 @@ function loadEpisode(seasonNum, episodeNum, ep) {
 
   player.on('time', e => {
     localStorage.setItem(saveKey, e.position);
+
+    // ✅ Si ha visto más del 20%, marcar como visto
+    if (e.duration && e.position / e.duration >= 0.2) {
+      if (!localStorage.getItem(vistoKey)) {
+        localStorage.setItem(vistoKey, 'true');
+        const selector = `.episode-card[data-season="${seasonNum}"][data-episode="${episodeNum}"]`;
+        const epCard = document.querySelector(selector);
+        if (epCard) epCard.classList.add('visto');
+      }
+    }
   });
 
   player.on('complete', () => {
     localStorage.removeItem(saveKey);
+    localStorage.setItem(vistoKey, 'true');
+    const selector = `.episode-card[data-season="${seasonNum}"][data-episode="${episodeNum}"]`;
+    const epCard = document.querySelector(selector);
+    if (epCard) epCard.classList.add('visto');
   });
 }
 
